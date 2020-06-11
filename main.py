@@ -1,70 +1,63 @@
-dist1 = {
-	family_and_parameters = {
-		family = ''
-		parameters = {}
-	}
-	weight = 
-	sign = 
-	truncate_left_of_mode = 
-	x_translation = 
-}
+from scipy import stats
+import matplotlib.pyplot as plt
+import numpy as np
 
-class Component_dist(rv_continuous):
-	def transform(dist,
-	sign=1,
-	truncate_left_of_mode=0,
-	x_translation=0):
-		dist = sign*dist
-		dist = dist - x_translation 
-		# todo: truncation
-		return dist
+class Dist_from_pdf(stats.rv_continuous):
+	def __init__(self,pdf_in):
+		super(Dist_from_pdf,self).__init__()
+		self.pdf_in = pdf_in
+	def _pdf(self,x):
+		return self.pdf_in(x)
 
+
+class Component_dist(stats.rv_continuous):
 	def __init__(self,
 	family_and_parameters,
 	sign=1,
 	truncate_left_of_mode=0,
 	x_translation=0,
 	):
-		if family_and_parameters["family"] == 'Normal':
+		super(Component_dist,self).__init__()
+		if family_and_parameters["family"] == 'normal':
 			mu = family_and_parameters["parameters"]["mu"]
 			sigma = family_and_parameters["parameters"]["sigma"]
 			self.base = stats.norm(mu,sigma)
-		self.sign=sign
-		self.truncate_left_of_mode=truncate_left_of_mode
-		self.x_translation=x_translation
+		
 
-		self.transformed = transform(self.base)
+		self.transformed = Dist_from_pdf(lambda x: self.base.pdf(x*sign+x_translation))
 
-def Mixture_dist(rv_continuous):
-    def __init__(self, dists_weights):
-        super(mixture_dist).__init__()
-        self.dists_weights = dists_weights
+class Mixture_dist(stats.rv_continuous):
+	def __init__(self, dists_weights):
+		super(Mixture_dist,self).__init__()
+		self.dists_weights = dists_weights
 
-    def _pdf(self, x):
-        for component_dist in self.dists_weights:
-            pdf += component_dist.pdf(x)*dists_weights[component_dist]
-        pdf /= len(self.dists_weights)
-        return pdf
+	def _pdf(self, x):
+		density = 0
+		for component_dist in self.dists_weights:
+			density += component_dist.pdf(x)*self.dists_weights[component_dist]
+		density /= len(self.dists_weights)
+		return density
 
-dist1 = Component_dist({
-						family_and_parameters = {
-							family = ''
-							parameters = {}
-						}
-						sign = 1
-						truncate_left_of_mode = 0
-						x_translation = 0
-}
+dist1 = Component_dist(family_and_parameters = {
+							'family' : 'normal',
+							'parameters' : {'mu':3,'sigma':1}},
+						sign = -1,
+						truncate_left_of_mode = 0,
+						x_translation = 0,
+)
 
-dist2 = Component_dist({
-						family_and_parameters = {
-							family = ''
-							parameters = {}
-						}
-						sign = 1
-						truncate_left_of_mode = 0
-						x_translation = 0
-}
+dist2 = Component_dist(family_and_parameters = {
+							'family' :'normal',
+							'parameters' : {'mu':3,'sigma':1}},
+						sign = 1,
+						truncate_left_of_mode = 0,
+						x_translation = 0,
+)
 
-mixture = Mixture_dist({dist1:0.2,dist2:0.3})
+mixture = Mixture_dist({dist1.transformed:0.5,dist2.transformed:0.5})
 
+
+x = np.linspace(-5,5,100)
+fig, ax = plt.subplots()
+ax.plot(x,mixture.pdf(x))
+plt.show()
